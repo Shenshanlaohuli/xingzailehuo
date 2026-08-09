@@ -164,6 +164,7 @@
             min-width: 120px;
             max-width: 90%;
             margin-bottom: 10px;
+            gap: 0;
         }
 
         /* 电脑玩家的吃分牌：重叠排列，每张只露出左上角数字，节省空间 */
@@ -218,15 +219,19 @@
             margin-right: 15px;
         }
 
+        /* 玩家自己的吃分牌：同样重叠排列，露出左侧约18px数字条 */
         #p0 .loot-area .card {
+            margin-left: -26px;
+            box-shadow: -1px 0 3px rgba(0,0,0,0.4);
+        }
+        #p0 .loot-area .card:first-child {
             margin-left: 0;
-            box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
         }
 
         /* 中央出牌区 */
         #trick-area {
             position: absolute;
-            top: 45%; left: 50%;
+            top: 39%; left: 50%;
             transform: translate(-50%, -50%);
             width: 100%; height: 150px;
             display: flex;
