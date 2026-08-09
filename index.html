@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Schadenfreude 幸灾乐祸 - 手机精简版</title>
+    <style>
+        :root {
+            --card-width: 96px;
+            --card-height: 132px;
+            --bg-color: #1a252f;
+            --table-bg: radial-gradient(circle at center, #26a69a 0%, #00695c 100%);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: white;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 界面布局 */
+        #setup-screen, #game-over-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 { margin-bottom: 10px; font-size: 26px; color: #4db6ac; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        
+        button {
+            padding: 14px 35px;
+            margin: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background: linear-gradient(135deg, #4db6ac, #00897b);
+            border: none;
+            color: white;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+
+        /* 游戏桌面 */
+        #game-board {
+            flex: 1;
+            position: relative;
+            background: var(--table-bg);
+            overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+        }
+
+        /* 顶部信息条 */
+        #info-panel {
+            position: absolute;
+            top: 0; left: 0; width: 100%;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            z-index: 50;
+            backdrop-filter: blur(4px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #status-text { 
+            position: absolute; 
+            top: 60px; 
+            width: 100%; 
+            text-align: center; 
+            font-weight: bold; 
+            color: #ffecb3; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            font-size: 18px;
+            z-index: 40;
+        }
+
+        /* 玩家区域布局 */
+        .player-area {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 90px; 
+            transition: all 0.3s ease;
+        }
+
+        /* 玩家自己 (底部) */
+        #p0 { 
+            bottom: 60px;
+            left: 0; 
+            width: 100%; 
+            z-index: 60;
+        }
+        
+        /* 电脑玩家位置 */
+        body.players-3 #p1 { top: 70px; left: 10px; }
+        body.players-3 #p2 { top: 70px; right: 10px; }
+
+        body.players-4 #p1 { top: 42%; left: 5px; transform: translateY(-50%); }
+        body.players-4 #p2 { top: 70px; left: 50%; transform: translateX(-50%); }
+        body.players-4 #p3 { top: 42%; right: 5px; transform: translateY(-50%); }
+
+        body.players-5 #p1 { bottom: 200px; left: 5px; }
+        body.players-5 #p2 { top: 70px; left: 15px; }
+        body.players-5 #p3 { top: 70px; right: 15px; }
+        body.players-5 #p4 { bottom: 200px; right: 5px; }
+
+        .player-name { 
+            background: rgba(0,0,0,0.6); 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            font-size: 12px;
+            white-space: nowrap;
+            color: #e0f2f1;
+        }
+        
+        .player-score { 
+            font-size: 13px; 
+            color: #ffecb3; 
+            text-shadow: 1px 1px 2px black; 
+            margin: 3px 0;
+            font-weight: bold;
+        }
+
+        /* 计分牌展示区 (Loot) */
+        .loot-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 3px;
+            min-height: 20px;
+            background: rgba(0,0,0,0.2);
+            padding: 4px;
+            border-radius: 6px;
+            width: 100%;
+            pointer-events: none;
+        }
+        
+        #p0 .loot-area {
+            width: auto;
+            min-width: 120px;
+            max-width: 90%;
+            margin-bottom: 10px;
+        }
+
+        /* 手牌区域 */
+        .hand {
+            display: flex;
+            justify-content: center;
+            height: var(--card-height);
+            width: 100%;
+            margin-top: 5px;
+            padding-left: 6px;
+        }
+
+        /* 玩家手牌：减少重叠、加宽显示区域，让左上角数字（含负号）完整可见 */
+        #p0 .hand {
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding: 0 8px;
+        }
+
+        #p0 .hand .card {
+            margin-left: -60px;
+            flex-shrink: 0;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.4);
+            transition: transform 0.2s, margin 0.2s;
+        }
+        #p0 .hand .card:first-child { margin-left: 0; }
+
+        /* 屏幕够宽时进一步展开手牌 */
+        @media (min-width: 760px) {
+            #p0 .hand { justify-content: center; }
+            #p0 .hand .card { margin-left: -46px; }
+        }
+        @media (min-width: 1000px) {
+            #p0 .hand .card { margin-left: -26px; }
+        }
+        
+        #p0 .hand .card.clickable:active {
+            transform: translateY(-20px) scale(1.05);
+            z-index: 200;
+            margin-right: 15px;
+        }
+
+        #p0 .loot-area .card {
+            margin-left: 0;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* 中央出牌区 */
+        #trick-area {
+            position: absolute;
+            top: 45%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; height: 210px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .trick-card {
+            position: absolute;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        /* --- 卡牌核心样式 --- */
+        .card {
+            width: var(--card-width);
+            height: var(--card-height);
+            border-radius: 8px;
+            background: transparent;
+            color: black;
+            display: flex;
+            position: relative;
+            user-select: none;
+            font-family: 'Arial Black', sans-serif;
+        }
+
+        /* 精灵表渲染：唯一大图 cards-sheet.jpg，background-position 显示局部 */
+        .card .card-face {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            background-image: url('cards-sheet.jpg');
+            background-size: 900% 600%; /* 9列 x 6行，单格恰好铺满元素 */
+            background-repeat: no-repeat;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+            pointer-events: none;
+        }
+
+        /* 电脑玩家的暗牌（精灵表中的卡牌背面） */
+        .ai-hand {
+            height: auto !important;
+            min-height: 34px;
+            align-items: center;
+        }
+        .ai-hand .card-back {
+            width: 26px;
+            height: 36px;
+            border-radius: 4px;
+            margin-left: -20px;
+            background-image: url('cards-sheet.jpg');
+            background-size: 900% 600%;
+            background-repeat: no-repeat;
+            box-shadow: -1px 0 3px rgba(0,0,0,0.45);
+        }
+        .ai-hand .card-back:first-child { margin-left: 0; }
+
+        /* 默认手牌/桌面牌样式：左上角数字 */
+        .card-corner {
+            position: absolute;
+            top: 3px;
+            left: 5px;
+            font-size: 16px;
+            line-height: 1;
+            display: block;
+        }
+
+        /* 数值标签（隐藏，仅供对子消除逻辑读取） */
+        .card-center {
+            display: none;
+        }
+
+        /* --- 计分牌 (Mini Card) 特殊样式 --- */
+        .card.mini-card {
+            width: 44px;
+            height: 60px;
+            border-width: 1px;
+            border-radius: 3px;
+        }
+
+        /* 计分牌：隐藏左上角 */
+        .card.mini-card .card-corner {
+            display: none;
+        }
+
+        .card.mini-card .card-face {
+            border-radius: 3px;
+            box-shadow: none;
+        }
+
+        .card.clickable { z-index: 100; cursor: pointer; }
+        .card.disabled { opacity: 0.5; filter: grayscale(80%); }
+        
+        .card-owner-label {
+            position: absolute;
+            bottom: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #b2dfdb;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px black;
+            background: rgba(0,0,0,0.6);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* --- 消除动画样式 --- */
+        @keyframes shakeCard {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-3px) rotate(-5deg); }
+            50% { transform: translateX(3px) rotate(5deg); }
+            75% { transform: translateX(-3px) rotate(-5deg); }
+            100% { transform: translateX(0); }
+        }
+
+        .shake {
+            animation: shakeCard 0.4s ease-in-out infinite;
+        }
+
+        /* 花色颜色 */
+        .suit-red { background-color: #e53935; color: white; border-color: #b71c1c; }
+        .suit-blue { background-color: #1e88e5; color: white; border-color: #0d47a1; }
+        .suit-green { background-color: #00c853; color: white; border-color: #1b5e20; text-shadow: 0 1px 1px rgba(0,0,0,0.3);} 
+        .suit-yellow { background-color: #ffea00; color: black; border-color: #fbc02d; }
+        .suit-wild { background-color: #78909c; color: white; border-color: #455a64; }
+
+        /* 计分板 */
+        #score-board {
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .score-row { display: flex; justify-content: space-between; margin: 10px 0; border-bottom: 1px solid #ddd; padding-bottom: 5px; font-size: 15px;}
+        .eliminated { text-decoration: line-through; color: #d32f2f; }
+        .tie-eliminated { text-decoration: line-through; color: #f57c00; }
+        .winner { font-weight: bold; color: #2e7d32; margin: 15px 0; font-size: 20px;}
+        .rules-text { font-size: 12px; text-align: left; color: #b2dfdb; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-top: 15px;}
+
+    </style>
+</head>
+<body>
+
+    <!-- 游戏设置界面 -->
+    <div id="setup-screen">
+        <h1>Schadenfreude<br><span style="font-size:0.7em; color:white;">幸灾乐祸</span></h1>
+        <p style="color: #80cbc4; font-size: 14px;">手机精简版</p>
+        <div>
+            <button onclick="startGame(3)">3 人</button>
+            <button onclick="startGame(4)">4 人</button>
+            <button onclick="startGame(5)">5 人</button>
+        </div>
+        <div class="rules-text">
+            1. <b>出牌</b>：有领头花色必须出(或百搭)，没有可随意。<br>
+            2. <b>赢牌</b>：领头花色(含百搭)中<b>第二大</b>者赢。<br>
+            3. <b>吃分</b>：赢家拿走<span style="color:#ffea00">赢的牌</span>及<span style="color:#ffea00">垫牌</span>。<br>
+            4. <b>消除</b>：凑齐对子立即弃掉。<br>
+            5. <b>胜利</b>：>40分淘汰。最接近40分赢。平局最高分双双淘汰。
+        </div>
+    </div>
+
+    <!-- 游戏结束界面 -->
+    <div id="game-over-screen" class="hidden">
+        <div id="score-board">
+            <h2 id="game-over-title">游戏结算</h2>
+            <div id="final-scores"></div>
+            <button onclick="location.reload()">再来一局</button>
+        </div>
+    </div>
+
+    <!-- 游戏主界面 -->
+    <div id="game-board" class="hidden">
+        <div id="info-panel">
+            <div>R: <span id="round-num">1</span></div>
+            <div id="lead-indicator">领头: <span id="lead-suit-name">无</span></div>
+        </div>
+        
+        <div id="status-text">准备开始</div>
+
+        <div id="trick-area"></div>
+        
+        <!-- 玩家区域动态生成 -->
+    </div>
+
+<script>
+    const SUITS = ['red', 'blue', 'yellow', 'green'];
+    const WILD_SUIT = 'wild';
+    const CARD_VALUES = [-3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+    /* ================= CSS Sprite 精灵表配置 (BGA 风格) =================
+       唯一图片资源: cards-sheet.jpg (1890x1734, 9列 x 6行)
+       每张卡牌统一 210x289，通过 background-position 显示局部 */
+    const SPRITE_SHEET_W = 1890;
+    const SPRITE_SHEET_H = 1734;
+    const SPRITE_CELL_W = 210;
+    const SPRITE_CELL_H = 289;
+
+    const CARD_SPRITES = {
+        "blue_-3": { "x": 0, "y": 0, "width": 210, "height": 289 },
+        "blue_-2": { "x": 210, "y": 0, "width": 210, "height": 289 },
+        "blue_-1": { "x": 420, "y": 0, "width": 210, "height": 289 },
+        "blue_8": { "x": 630, "y": 0, "width": 210, "height": 289 },
+        "blue_9": { "x": 840, "y": 0, "width": 210, "height": 289 },
+        "yellow_1": { "x": 1050, "y": 0, "width": 210, "height": 289 },
+        "green_-3": { "x": 1260, "y": 0, "width": 210, "height": 289 },
+        "green_9": { "x": 1470, "y": 0, "width": 210, "height": 289 },
+        "red_2": { "x": 1680, "y": 0, "width": 210, "height": 289 },
+        "blue_1": { "x": 0, "y": 289, "width": 210, "height": 289 },
+        "blue_2": { "x": 210, "y": 289, "width": 210, "height": 289 },
+        "blue_7": { "x": 420, "y": 289, "width": 210, "height": 289 },
+        "blue_3": { "x": 630, "y": 289, "width": 210, "height": 289 },
+        "blue_6": { "x": 840, "y": 289, "width": 210, "height": 289 },
+        "yellow_2": { "x": 1050, "y": 289, "width": 210, "height": 289 },
+        "green_-2": { "x": 1260, "y": 289, "width": 210, "height": 289 },
+        "red_-3": { "x": 1470, "y": 289, "width": 210, "height": 289 },
+        "red_3": { "x": 1680, "y": 289, "width": 210, "height": 289 },
+        "blue_4": { "x": 0, "y": 578, "width": 210, "height": 289 },
+        "blue_5": { "x": 210, "y": 578, "width": 210, "height": 289 },
+        "yellow_-3": { "x": 420, "y": 578, "width": 210, "height": 289 },
+        "yellow_-2": { "x": 630, "y": 578, "width": 210, "height": 289 },
+        "yellow_-1": { "x": 840, "y": 578, "width": 210, "height": 289 },
+        "yellow_3": { "x": 1050, "y": 578, "width": 210, "height": 289 },
+        "green_-1": { "x": 1260, "y": 578, "width": 210, "height": 289 },
+        "red_-2": { "x": 1470, "y": 578, "width": 210, "height": 289 },
+        "red_4": { "x": 1680, "y": 578, "width": 210, "height": 289 },
+        "yellow_4": { "x": 0, "y": 867, "width": 210, "height": 289 },
+        "yellow_5": { "x": 210, "y": 867, "width": 210, "height": 289 },
+        "yellow_6": { "x": 420, "y": 867, "width": 210, "height": 289 },
+        "yellow_7": { "x": 630, "y": 867, "width": 210, "height": 289 },
+        "yellow_8": { "x": 840, "y": 867, "width": 210, "height": 289 },
+        "yellow_9": { "x": 1050, "y": 867, "width": 210, "height": 289 },
+        "green_1": { "x": 1260, "y": 867, "width": 210, "height": 289 },
+        "red_-1": { "x": 1470, "y": 867, "width": 210, "height": 289 },
+        "red_5": { "x": 1680, "y": 867, "width": 210, "height": 289 },
+        "green_2": { "x": 0, "y": 1156, "width": 210, "height": 289 },
+        "green_3": { "x": 210, "y": 1156, "width": 210, "height": 289 },
+        "green_4": { "x": 420, "y": 1156, "width": 210, "height": 289 },
+        "green_5": { "x": 630, "y": 1156, "width": 210, "height": 289 },
+        "green_6": { "x": 840, "y": 1156, "width": 210, "height": 289 },
+        "green_7": { "x": 1050, "y": 1156, "width": 210, "height": 289 },
+        "green_8": { "x": 1260, "y": 1156, "width": 210, "height": 289 },
+        "red_1": { "x": 1470, "y": 1156, "width": 210, "height": 289 },
+        "red_6": { "x": 1680, "y": 1156, "width": 210, "height": 289 },
+        "red_7": { "x": 0, "y": 1445, "width": 210, "height": 289 },
+        "red_8": { "x": 210, "y": 1445, "width": 210, "height": 289 },
+        "red_9": { "x": 420, "y": 1445, "width": 210, "height": 289 },
+        "wild_0": { "x": 630, "y": 1445, "width": 210, "height": 289 },
+        "wild_10": { "x": 840, "y": 1445, "width": 210, "height": 289 },
+        "back": { "x": 1050, "y": 1445, "width": 210, "height": 289 }
+    };
+
+    // 由像素坐标计算 background-position 百分比（与显示尺寸无关，任意缩放都对齐）
+    function spritePosition(id) {
+        const s = CARD_SPRITES[id];
+        const px = (s.x / (SPRITE_SHEET_W - s.width)) * 100;
+        const py = (s.y / (SPRITE_SHEET_H - s.height)) * 100;
+        return `${px}% ${py}%`;
+    }
+
+    let state = {
+        numPlayers: 0,
+        players: [], 
+        deck: [],
+        currentTrick: [], 
+        leadSuit: null,
+        currentPlayerIndex: 0,
+        startPlayerIndex: -1, 
+        roundNum: 0,
+        gameActive: false
+    };
+
+    function createDeck(numPlayers) {
+        let deck = [];
+        deck.push({ suit: WILD_SUIT, value: 0, uid: 'w0' });
+        deck.push({ suit: WILD_SUIT, value: 10, uid: 'w10' });
+        SUITS.forEach(suit => {
+            CARD_VALUES.forEach(val => {
+                if (numPlayers === 3) {
+                    if (val === -2 || val === -1 || val === 9) return;
+                }
+                deck.push({ suit: suit, value: val, uid: suit + val });
+            });
+        });
+        return deck;
+    }
+
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function startGame(num) {
+        state.numPlayers = num;
+        state.players = [];
+        for (let i = 0; i < num; i++) {
+            state.players.push({
+                id: i,
+                name: i === 0 ? "你" : `电脑${i}`,
+                isHuman: i === 0,
+                hand: [],
+                loot: [], 
+                totalScore: 0,
+                eliminated: false,
+                tieEliminated: false
+            });
+        }
+
+        document.body.className = `players-${num}`;
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('game-board').classList.remove('hidden');
+
+        initUI();
+        state.startPlayerIndex = Math.floor(Math.random() * num);
+        startRound();
+    }
+
+    function initUI() {
+        const board = document.getElementById('game-board');
+        document.querySelectorAll('.player-area').forEach(e => e.remove());
+
+        state.players.forEach((p, i) => {
+            const div = document.createElement('div');
+            div.className = 'player-area';
+            div.id = `p${i}`;
+            
+            let handHtml = `<div class="hand ${i === 0 ? '' : 'ai-hand'}" id="hand-${i}"></div>`;
+            
+            div.innerHTML = `
+                <div class="player-name">${p.name}</div>
+                <div class="player-score"><span id="score-val-${i}">0</span>分</div>
+                <div class="loot-area" id="loot-${i}"></div>
+                ${handHtml}
+            `;
+            board.appendChild(div);
+        });
+    }
+
+    function startRound() {
+        state.roundNum++;
+        document.getElementById('round-num').innerText = state.roundNum;
+        document.getElementById('status-text').innerText = "发牌中...";
+        document.getElementById('game-over-screen').classList.add('hidden');
+
+        let deck = shuffle(createDeck(state.numPlayers));
+        let cardsPerPlayer = 12;
+        if (state.numPlayers === 5) cardsPerPlayer = 10;
+
+        state.players.forEach(p => {
+            p.hand = deck.splice(0, cardsPerPlayer);
+            p.hand.sort((a, b) => {
+                if (a.suit === b.suit) return a.value - b.value;
+                return a.suit.localeCompare(b.suit);
+            });
+            p.loot = [];
+        });
+
+        state.currentPlayerIndex = state.startPlayerIndex;
+        state.currentTrick = [];
+        state.leadSuit = null;
+        state.gameActive = true;
+
+        updateUI();
+        playTurn();
+    }
+
+    function playTurn() {
+        if (!state.gameActive) return;
+        updateUI();
+        
+        const player = state.players[state.currentPlayerIndex];
+        const statusEl = document.getElementById('status-text');
+
+        if (player.isHuman) {
+            statusEl.innerText = "你的回合";
+            enableHumanInput();
+        } else {
+            statusEl.innerText = `${player.name} 思考中...`;
+            setTimeout(() => {
+                aiPlay(player);
+            }, 600 + Math.random() * 400);
+        }
+    }
+
+    function aiPlay(player) {
+        const validCards = getValidCards(player.hand);
+        const randomIndex = Math.floor(Math.random() * validCards.length);
+        playCardAction(player.id, validCards[randomIndex]);
+    }
+
+    function getValidCards(hand) {
+        if (state.currentTrick.length === 0 || state.leadSuit === WILD_SUIT) {
+            return hand;
+        }
+        let currentLeadSuit = state.leadSuit; 
+        const hasLeadSuit = hand.some(c => c.suit === currentLeadSuit);
+
+        if (hasLeadSuit) {
+            return hand.filter(c => c.suit === currentLeadSuit || c.suit === WILD_SUIT);
+        } else {
+            return hand;
+        }
+    }
+
+    function enableHumanInput() {
+        const hand = state.players[0].hand;
+        const validCards = getValidCards(hand);
+        const handDiv = document.getElementById(`hand-0`);
+        const cardEls = handDiv.getElementsByClassName('card');
+
+        for (let i = 0; i < hand.length; i++) {
+            const cardObj = hand[i];
+            const el = cardEls[i];
+            if (validCards.includes(cardObj)) {
+                el.classList.add('clickable');
+                el.classList.remove('disabled');
+                el.onclick = () => {
+                    Array.from(cardEls).forEach(c => c.onclick = null);
+                    playCardAction(0, cardObj);
+                };
+            } else {
+                el.classList.add('disabled');
+                el.classList.remove('clickable');
+                el.onclick = null;
+            }
+        }
+    }
+
+    function playCardAction(playerId, card) {
+        const player = state.players[playerId];
+        const cardIndex = player.hand.indexOf(card);
+        if (cardIndex > -1) player.hand.splice(cardIndex, 1);
+
+        state.currentTrick.push({ playerId: playerId, card: card });
+
+        if (state.currentTrick.length === 1) {
+            if (card.suit !== WILD_SUIT) {
+                state.leadSuit = card.suit;
+            } else {
+                state.leadSuit = WILD_SUIT; 
+            }
+        } else if (state.leadSuit === WILD_SUIT && card.suit !== WILD_SUIT) {
+            state.leadSuit = card.suit;
+        }
+
+        updateUI();
+
+        if (state.currentTrick.length === state.numPlayers) {
+            setTimeout(resolveTrick, 800);
+        } else {
+            state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.numPlayers;
+            playTurn();
+        }
+    }
+
+    function resolveTrick() {
+        const trick = state.currentTrick;
+        let finalLeadSuit = state.leadSuit;
+        
+        let leadSuitCards = [];
+        let offSuitCards = []; 
+
+        trick.forEach(t => {
+            if (finalLeadSuit === WILD_SUIT || t.card.suit === finalLeadSuit || t.card.suit === WILD_SUIT) {
+                leadSuitCards.push(t);
+            } else {
+                offSuitCards.push(t);
+            }
+        });
+
+        leadSuitCards.sort((a, b) => b.card.value - a.card.value);
+
+        let winnerEntry = (leadSuitCards.length === 1) ? leadSuitCards[0] : leadSuitCards[1];
+        const winnerId = winnerEntry.playerId;
+        const winner = state.players[winnerId];
+
+        let lootCount = 0;
+        winner.loot.push(winnerEntry.card);
+        lootCount++;
+
+        offSuitCards.forEach(t => {
+            winner.loot.push(t.card);
+            lootCount++;
+        });
+
+        document.getElementById('status-text').innerText = `${winner.name} 赢了!`;
+        
+        // 先更新一次UI让用户看到拿回来的牌
+        updateUI();
+
+        // 检查对子并播放动画
+        const animationDuration = processPairs(winner);
+        const waitTime = animationDuration > 0 ? 1500 : 1500;
+
+        setTimeout(() => {
+            state.currentTrick = [];
+            state.leadSuit = null;
+            state.currentPlayerIndex = winnerId; 
+            updateUI(); 
+
+            if (state.players[0].hand.length === 0) {
+                endRound();
+            } else {
+                playTurn();
+            }
+        }, waitTime);
+    }
+
+    function processPairs(player) {
+        // 1. 计算需要消除的卡牌
+        let counts = {};
+        player.loot.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
+        
+        let pairsFound = false;
+
+        // 2. 在UI上标记要消除的卡牌
+        const lootContainer = document.getElementById(`loot-${player.id}`);
+        if (!lootContainer) return 0;
+
+        const cardEls = Array.from(lootContainer.children);
+        
+        // 为了准确找到DOM元素，我们需要根据值分组
+        let valueToEls = {};
+        cardEls.forEach(el => {
+            // 获取中央数字的文本 (因为迷你牌只显示 .card-center)
+            const centerEl = el.querySelector('.card-center');
+            if(centerEl) {
+                const val = parseInt(centerEl.innerText);
+                if(!valueToEls[val]) valueToEls[val] = [];
+                valueToEls[val].push(el);
+            }
+        });
+
+        for (let valStr in counts) {
+            let val = parseInt(valStr);
+            let count = counts[valStr];
+            // 需要移除的数量 (成对移除)
+            let removeCount = Math.floor(count / 2) * 2;
+            
+            if (removeCount > 0 && valueToEls[val]) {
+                pairsFound = true;
+                // 标记最后进入的N张牌 (倒序标记)
+                for (let i = 0; i < removeCount; i++) {
+                    // 从数组末尾取元素（因为新牌通常在后面）
+                    let el = valueToEls[val].pop(); 
+                    if (el) {
+                        el.classList.add('shake');
+                        // 移除了红色大叉号的创建
+                    }
+                }
+            }
+        }
+
+        // 3. 延迟后更新数据（实际移除）
+        if (pairsFound) {
+            setTimeout(() => {
+                let newLoot = [];
+                // 重新计算保留的牌
+                let currentCounts = {}; 
+                player.loot.forEach(c => currentCounts[c.value] = (currentCounts[c.value] || 0) + 1);
+                
+                for (let valStr in currentCounts) {
+                    let val = parseInt(valStr);
+                    let count = currentCounts[valStr];
+                    let keep = count % 2; 
+                    
+                    if (keep > 0) {
+                        let card = player.loot.find(c => c.value === val);
+                        newLoot.push(card);
+                    }
+                }
+                player.loot = newLoot;
+                // 不需要在这里调用updateUI，外层resolveTrick的timeout会调用
+            }, 1200);
+            return 1200; // 返回动画持续时间
+        }
+        
+        return 0;
+    }
+
+    function endRound() {
+        let minScore = 9999;
+        let minScorePlayers = [];
+
+        state.players.forEach(p => {
+            let roundScore = 0;
+            p.loot.forEach(c => {
+                if (c.value < 0 || c.value > 0) roundScore += c.value;
+            });
+            p.totalScore += roundScore;
+        });
+
+        checkGameOver();
+        if (!state.gameActive) return;
+
+        state.players.forEach(p => {
+            if (p.eliminated) return;
+            if (p.totalScore < minScore) {
+                minScore = p.totalScore;
+                minScorePlayers = [p.id];
+            } else if (p.totalScore === minScore) {
+                minScorePlayers.push(p.id);
+            }
+        });
+        state.startPlayerIndex = minScorePlayers[Math.floor(Math.random() * minScorePlayers.length)];
+
+        alert(`本轮结束。下一轮起始: ${state.players[state.startPlayerIndex].name}`);
+        startRound();
+    }
+
+    function checkGameOver() {
+        let anyoneOver40 = state.players.some(p => p.totalScore > 40);
+        
+        if (anyoneOver40) {
+            state.gameActive = false;
+            
+            state.players.forEach(p => {
+                if (p.totalScore > 40) p.eliminated = true;
+            });
+
+            let survivors = state.players.filter(p => p.totalScore <= 40);
+            let winner = null;
+
+            survivors.sort((a, b) => b.totalScore - a.totalScore);
+
+            while (survivors.length > 0) {
+                let currentMaxScore = survivors[0].totalScore;
+                let tiedGroup = survivors.filter(p => p.totalScore === currentMaxScore);
+                
+                if (tiedGroup.length === 1) {
+                    winner = tiedGroup[0];
+                    break;
+                } else {
+                    tiedGroup.forEach(p => {
+                        p.eliminated = true;
+                        p.tieEliminated = true; 
+                    });
+                    survivors = survivors.filter(p => p.totalScore !== currentMaxScore);
+                }
+            }
+
+            let resultHTML = "";
+            if (winner) {
+                resultHTML = `<h2 class='winner'>🎉 赢家: ${winner.name} (${winner.totalScore}分) 🎉</h2>`;
+            } else {
+                resultHTML = "<h3 style='color:#ff7043'>无人获胜 (爆分/平局)</h3>";
+            }
+
+            let listHTML = state.players.map(p => {
+                let status = "";
+                if (p.eliminated) {
+                    if (p.tieEliminated) status = "<span class='tie-eliminated'>(平局)</span>";
+                    else status = "<span class='eliminated'>(爆分)</span>";
+                }
+                let winMark = (winner && p.id === winner.id) ? "🏆" : "";
+                
+                return `<div class="score-row">
+                            <span>${p.name} ${status} ${winMark}</span>
+                            <span>${p.totalScore}</span>
+                        </div>`;
+            }).join('');
+
+            document.getElementById('final-scores').innerHTML = resultHTML + listHTML;
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+    }
+
+    function updateUI() {
+        const leadSuitMap = {
+            'red': '<span style="color:#e57373">红</span>',
+            'blue': '<span style="color:#64b5f6">蓝</span>',
+            'yellow': '<span style="color:#fff176">黄</span>',
+            'green': '<span style="color:#81c784">绿</span>',
+            'wild': '<span style="color:#b0bec5">百搭</span>'
+        };
+        document.getElementById('lead-suit-name').innerHTML = state.leadSuit ? leadSuitMap[state.leadSuit] : '无';
+
+        state.players.forEach(p => {
+            document.getElementById(`score-val-${p.id}`).innerText = p.totalScore;
+
+            const lootDiv = document.getElementById(`loot-${p.id}`);
+            // 在对子消除动画播放期间，我们不希望完全重绘loot区域，否则动画元素会丢失
+            // 但 updateUI 通常在出牌时调用，此时还没有消除动画。
+            // 只有在 resolveTrick 且有消除时才会有冲突。
+            // 我们简单的逻辑是：每次全量刷新。processPairs会在全量刷新后手动添加动画DOM。
+            lootDiv.innerHTML = '';
+            let sortedLoot = [...p.loot].sort((a,b) => a.value - b.value);
+            sortedLoot.forEach(card => {
+                let miniCard = createCardEl(card);
+                miniCard.classList.add('mini-card'); 
+                lootDiv.appendChild(miniCard);
+            });
+
+            if (p.isHuman) {
+                const handDiv = document.getElementById(`hand-${p.id}`);
+                handDiv.innerHTML = '';
+                p.hand.forEach(card => {
+                    handDiv.appendChild(createCardEl(card));
+                });
+            } else {
+                // 电脑玩家显示暗牌（精灵表中的卡牌背面）
+                const handDiv = document.getElementById(`hand-${p.id}`);
+                if (handDiv) {
+                    handDiv.innerHTML = '';
+                    p.hand.forEach(() => {
+                        const back = document.createElement('div');
+                        back.className = 'card-back';
+                        back.style.backgroundPosition = spritePosition('back');
+                        handDiv.appendChild(back);
+                    });
+                }
+            }
+        });
+
+        const trickArea = document.getElementById('trick-area');
+        trickArea.innerHTML = '';
+        state.currentTrick.forEach((item, index) => {
+            const cardEl = createCardEl(item.card);
+            cardEl.classList.add('trick-card');
+            
+            let count = state.currentTrick.length;
+            let offset = (index - (count - 1)/2) * 50;
+            
+            cardEl.style.transform = `translateX(${offset}px)`;
+            cardEl.style.zIndex = index;
+
+            const label = document.createElement('div');
+            label.className = 'card-owner-label';
+            label.innerText = state.players[item.playerId].name;
+            cardEl.appendChild(label);
+
+            trickArea.appendChild(cardEl);
+        });
+    }
+
+    function createCardEl(card) {
+        const el = document.createElement('div');
+        el.className = `card suit-${card.suit}`;
+        el.dataset.value = card.value;
+
+        // 卡牌正面：精灵表局部区域（background-position 偏移）
+        const face = document.createElement('div');
+        face.className = 'card-face';
+        face.style.backgroundPosition = spritePosition(`${card.suit}_${card.value}`);
+        el.appendChild(face);
+
+        // 隐藏的数值标签（供对子消除逻辑读取）
+        const center = document.createElement('div');
+        center.className = 'card-center';
+        center.innerText = card.value;
+        el.appendChild(center);
+
+        return el;
+    }
+</script>
+</body>
+</html>
