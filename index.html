@@ -84,17 +84,36 @@
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
-        #status-text { 
-            position: absolute; 
-            top: 60px; 
-            width: 100%; 
-            text-align: center; 
-            font-weight: bold; 
-            color: #ffecb3; 
+        #status-text {
+            position: absolute;
+            top: 60px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            color: #ffecb3;
             text-shadow: 0 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
             font-size: 18px;
             z-index: 40;
+        }
+
+        /* 回合结束提示框：居中显示在最顶层 */
+        #round-toast {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.94);
+            color: #ffecb3;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 16px 28px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.25);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 90;
+            text-align: center;
+            pointer-events: none;
+            line-height: 1.6;
         }
 
         /* 玩家区域布局 */
@@ -119,9 +138,9 @@
         body.players-3 #p1 { top: 70px; left: 10px; }
         body.players-3 #p2 { top: 70px; right: 10px; }
 
-        body.players-4 #p1 { top: 42%; left: 5px; transform: translateY(-50%); }
+        body.players-4 #p1 { bottom: 200px; left: 5px; }
         body.players-4 #p2 { top: 70px; left: 50%; transform: translateX(-50%); }
-        body.players-4 #p3 { top: 42%; right: 5px; transform: translateY(-50%); }
+        body.players-4 #p3 { bottom: 200px; right: 5px; }
 
         body.players-5 #p1 { bottom: 200px; left: 5px; }
         body.players-5 #p2 { top: 70px; left: 15px; }
@@ -426,6 +445,8 @@
         
         <div id="status-text">准备开始</div>
 
+        <div id="round-toast" class="hidden"></div>
+
         <div id="trick-area"></div>
         
         <!-- 玩家区域动态生成 -->
@@ -592,6 +613,7 @@
         document.getElementById('round-num').innerText = state.roundNum;
         document.getElementById('status-text').innerText = "发牌中...";
         document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('round-toast').classList.add('hidden');
 
         let deck = shuffle(createDeck(state.numPlayers));
         let cardsPerPlayer = 12;
@@ -855,8 +877,11 @@
         });
         state.startPlayerIndex = minScorePlayers[Math.floor(Math.random() * minScorePlayers.length)];
 
-        alert(`本轮结束。下一轮起始: ${state.players[state.startPlayerIndex].name}`);
-        startRound();
+        // 中央顶层文本框提示，2秒后开始下一轮
+        const toast = document.getElementById('round-toast');
+        toast.innerHTML = `本轮结束<br>下一轮: ${state.players[state.startPlayerIndex].name} 先手 <span style="font-size:0.8em; color:#80cbc4;">(分数最低)</span>`;
+        toast.classList.remove('hidden');
+        setTimeout(startRound, 2000);
     }
 
     function checkGameOver() {
