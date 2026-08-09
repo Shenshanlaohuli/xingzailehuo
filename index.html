@@ -216,7 +216,7 @@
             position: absolute;
             top: 45%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 100%; height: 210px;
+            width: 100%; height: 150px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -228,6 +228,13 @@
             transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
         }
+
+        /* 中央出牌缩小50%，多人局也能全部看清 */
+        .card.trick-card {
+            width: calc(var(--card-width) * 0.5);
+            height: calc(var(--card-height) * 0.5);
+        }
+        .card.trick-card .card-face { border-radius: 5px; }
 
         /* --- 卡牌核心样式 --- */
         .card {
@@ -945,7 +952,7 @@
             cardEl.classList.add('trick-card');
             
             let count = state.currentTrick.length;
-            let offset = (index - (count - 1)/2) * 50;
+            let offset = (index - (count - 1)/2) * 36;
             
             cardEl.style.transform = `translateX(${offset}px)`;
             cardEl.style.zIndex = index;
